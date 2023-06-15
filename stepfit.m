@@ -1,4 +1,3 @@
-
 function x = stepfit(spectrum, YU, YD, Xmin)
 
 N = length(spectrum);
