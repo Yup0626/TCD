@@ -1,54 +1,46 @@
 clear
 clc
 
-namelist = dir('TCD_long monitoring 0824/');
+load spectrum_1.mat
+Sdat = flipud(spectrum_1);
 
-Sdat = [];
-for m = 4:879
-    m,
 
-    % generate variable SdatAll
-    load(['TCD_long monitoring 0824/', namelist(m).name]); 
-    
-    % connect all frames in the horizontal direction
-    Sdat = [Sdat, SdatAll];
-end
-
-N = size(TCD_full4h,2);
-time = (1:N)'/592;
-frequency = 1:2481;
+N = size(Sdat,2);
+time = 3*(1:N)'/592;
+frequency = linspace(-131,2481,256);
 figure(1)
-imagesc(time,frequency,flipud(TCD_full4h))
+imagesc(time,frequency,Sdat)
 
-Sdat_hist_1 = histeq(min(TCD_full4h,20)/20);
+%% enhancement
+Sdat_hist_1 = histeq(min(Sdat,15)/15);
 Sdat_hist = Sdat_hist_1;
 Sdat_hist(Sdat_hist>0.7) = 1;
 Sdat_hist(Sdat_hist<0.5) = 0;
 
+%% find envelope
 envelope = zeros(N,1);
 for m = 1:N
-    m,
     % fit curve with step function
     x = stepfit(Sdat_hist(:,m), 1, 0, 70);
     envelope(m,1) =  x;
 end
+k1 = (-131-2481)/-256;
+b1 = -131;
+envelope = k1*envelope + b1;
 
-envelope = max(min(envelope,200),0);
-smooth_enve = smooth(envelope,5);
-%% no loop
 figure(2)
-imagesc(Sdat_hist_1)
+imagesc(time,frequency,Sdat_hist_1)
 % colormap turbo
 hold on
 % figure(3)
-plot(envelope, 'r', 'LineWidth', 2)
-time = (1:N)'*3/592;
+plot(time,envelope, 'r', 'LineWidth', 2)
 
 
+%% find max and min peaks 
+Nslide = 400; 
+Nwindow = 590;
 
-Nslide = 500; 
-Nwindow = 600;
-
+smooth_enve = smooth(envelope,5);
 for m = 1:Nslide:length(envelope)-Nwindow 
     m,
     sorted = sort(smooth_enve(m:m+Nwindow-1));
@@ -81,19 +73,11 @@ for m = 1:Nslide:length(envelope)-Nwindow
     end
 end
 
-y_PSV = envelope(x_PSV);
-y_EDV = envelope(x_EDV);
+y_PSV = envelope(x_PSV) * 154000/(2*2e6);
+y_EDV = envelope(x_EDV) * 154000/(2*2e6);
 
 figure(5)
-plot(envelope)
+plot(envelope* 154000/(2*2e6))
 hold on
 plot(x_PSV, y_PSV, '*r')
 plot(x_EDV, y_EDV, '*k')
-% legend('Raw Data','PSV','EDV')
-figure(6)
-y_MFV=(y_EDV(1:20002,:)+(y_PSV(1:20002,:)-y_EDV(1:20002,:))/3)/256*3025*154000/(2*2*10^6);
-hold on
-x_MFV=time(x_PSV(1:20002,:))/60;
-plot(x_MFV, smooth(y_MFV,100))
-
-
